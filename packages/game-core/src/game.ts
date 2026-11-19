@@ -169,7 +169,7 @@ function buildTeam(players: Record<Seat, PlayerGameState>): TeamState {
 function revealAllRedAces(state: GameState): void {
   for (const seat of SEATS) {
     state.opening.revealedAces[seat] = state.players[seat].hand
-      .filter((card) => card.rank === 14)
+      .filter(isRedAce)
       .map((card) => ({ ...card }));
   }
 }

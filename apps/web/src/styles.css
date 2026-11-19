@@ -1003,6 +1003,11 @@ button:disabled {
 }
 
 .seat-top .public-cards {
+  top: calc(100% + 0.35rem);
+  bottom: auto;
+}
+
+.seat-bottom .public-cards {
   top: auto;
   bottom: calc(100% + 0.35rem);
 }

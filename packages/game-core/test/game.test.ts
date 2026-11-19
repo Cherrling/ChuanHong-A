@@ -75,8 +75,8 @@ function expectRuleError(
 describe("deal, team split, and opening", () => {
   it("finds the heart-two holder, red-A team, and reveals aces only on contact", () => {
     const initial = create([
-      [HEART_TWO, card(14, "hearts"), card(5)],
-      [card(14, "diamonds"), card(6)],
+      [HEART_TWO, card(14, "hearts"), card(14, "spades"), card(5)],
+      [card(14, "diamonds"), card(14, "clubs"), card(6)],
       [card(7, "diamonds")],
       [card(8, "spades")]
     ]);
@@ -91,6 +91,8 @@ describe("deal, team split, and opening", () => {
     expect(opened.team.foundPartner).toBe(true);
     expect(opened.opening.revealedAces[0]).toHaveLength(1);
     expect(opened.opening.revealedAces[1]).toHaveLength(1);
+    expect(opened.opening.revealedAces[0]).toEqual([card(14, "hearts")]);
+    expect(opened.opening.revealedAces[1]).toEqual([card(14, "diamonds")]);
     expect(opened.currentSeat).toBe(0);
     expect(toClientGameView(opened, 2).team).toMatchObject({
       mode: "2v2",
