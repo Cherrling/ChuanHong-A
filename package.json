@@ -1,0 +1,23 @@
+{
+  "name": "chuanhong-a",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "build": "pnpm --filter @chuanhong/game-core build && pnpm --filter @chuanhong/server build && pnpm --filter @chuanhong/web build",
+    "dev": "pnpm --filter @chuanhong/game-core build && concurrently -k -n server,web -c cyan,magenta \"pnpm --filter @chuanhong/server dev\" \"pnpm --filter @chuanhong/web dev\"",
+    "lint": "eslint . --max-warnings=0",
+    "start": "pnpm --filter @chuanhong/server start",
+    "test": "pnpm --filter @chuanhong/game-core build && pnpm -r test",
+    "typecheck": "pnpm --filter @chuanhong/game-core build && pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0"
+  }
+}
