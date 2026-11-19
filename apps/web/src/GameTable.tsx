@@ -10,7 +10,8 @@ import {
   cardKey,
   cardLabel,
   comboLabel,
-  identifyCombo
+  identifyCombo,
+  sameCard
 } from "@chuanhong/game-core";
 import { PlayingCard } from "./PlayingCard";
 
@@ -222,9 +223,7 @@ function GameTableContent({
               <span className="eyebrow">开局</span>
               <strong>找伙与反揪</strong>
             </div>
-            {game.opening.provisional ? (
-              <p className="policy-note">{game.opening.provisionalText}</p>
-            ) : null}
+            <p className="policy-note">{game.opening.ruleText}</p>
             {game.team ? (
               <div className="team-summary">
                 <span>{game.team.mode} · 已公开队伍</span>
@@ -291,6 +290,12 @@ function PlayerSeat({ snapshot, game, seat }: PlayerSeatProps) {
   if (!player || !gamePlayer) {
     return null;
   }
+  const revealedMaxCard = gamePlayer.revealedMaxCard;
+  const distinctRevealedAces = revealedMaxCard
+    ? gamePlayer.revealedAces.filter(
+        (card) => !sameCard(card, revealedMaxCard)
+      )
+    : gamePlayer.revealedAces;
 
   return (
     <article
@@ -330,13 +335,13 @@ function PlayerSeat({ snapshot, game, seat }: PlayerSeatProps) {
             <PlayingCard card={game.opening.revealedHeartTwo} compact />
           </div>
         ) : null}
-        {gamePlayer.revealedAces.map((card) => (
+        {distinctRevealedAces.map((card) => (
           <PlayingCard key={`ace-${cardKey(card)}`} card={card} compact />
         ))}
-        {gamePlayer.revealedMaxCard ? (
+        {revealedMaxCard ? (
           <div className="max-card-wrap">
             <small>最大</small>
-            <PlayingCard card={gamePlayer.revealedMaxCard} compact />
+            <PlayingCard card={revealedMaxCard} compact />
           </div>
         ) : null}
       </div>
@@ -409,7 +414,9 @@ function ActionDock({
         ) : null}
         {game.actions.canRespondOpening ? (
           <div className="button-row">
-            {game.actions.selfHasRedAce && game.opening.contactedSeat === null ? (
+            {game.actions.selfHasRedAce &&
+            game.opening.contactedSeat === null &&
+            !game.team?.foundPartner ? (
               <button
                 type="button"
                 className="primary-button"
@@ -424,21 +431,19 @@ function ActionDock({
                 联系亮A
               </button>
             ) : null}
-            {game.opening.counterSeat === null ? (
-              <button
-                type="button"
-                className="danger-button"
-                disabled={busy}
-                onClick={() =>
-                  void onAction({
-                    type: "OPENING_RESPONSE",
-                    response: "counter"
-                  })
-                }
-              >
-                反揪 ×2
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="danger-button"
+              disabled={busy}
+              onClick={() =>
+                void onAction({
+                  type: "OPENING_RESPONSE",
+                  response: "counter"
+                })
+              }
+            >
+              {game.opening.counterSeats.length > 0 ? "我也反揪" : "反揪 ×2"}
+            </button>
             <button
               type="button"
               className="ghost-button"

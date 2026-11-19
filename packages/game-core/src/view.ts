@@ -32,10 +32,9 @@ export interface OpeningPublicView {
   currentSeat: Seat | null;
   respondedSeats: Seat[];
   contactedSeat: Seat | null;
-  counterSeat: Seat | null;
+  counterSeats: Seat[];
   revealedHeartTwo: Card | null;
-  provisional: true;
-  provisionalText: string;
+  ruleText: string;
 }
 
 export interface WindPublicView {
@@ -116,13 +115,12 @@ export function toClientGameView(
       currentSeat: state.opening.currentSeat,
       respondedSeats: [...state.opening.respondedSeats],
       contactedSeat: state.opening.contactedSeat,
-      counterSeat: state.opening.counterSeat,
+      counterSeats: [...state.opening.counterSeats],
       revealedHeartTwo: state.opening.revealedHeartTwo
         ? { ...state.opening.revealedHeartTwo }
         : null,
-      provisional: true,
-      provisionalText:
-        "暂行开局顺序：从♥2持有者起，四人各响应一次；单独反揪不自动算找伙。"
+      ruleText:
+        "开局响应按出牌顺序。多人反揪效果相同，倍率只按×2计算一次。接风者必须选择要风或压牌。"
     },
     startingSeat: state.startingSeat,
     currentSeat: state.currentSeat,

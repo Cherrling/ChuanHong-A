@@ -36,7 +36,7 @@ export interface OpeningState {
   respondedSeats: Seat[];
   responses: Record<Seat, OpeningResponse | null>;
   contactedSeat: Seat | null;
-  counterSeat: Seat | null;
+  counterSeats: Seat[];
   revealedHeartTwo: Card | null;
   revealedAces: Record<Seat, Card[]>;
   revealedMaxCards: Record<Seat, Card | null>;
@@ -84,8 +84,10 @@ export interface HistoryEntry {
 }
 
 export interface RulePolicy {
-  openingOrder: "provisional-explicit";
-  counterDoesContact: false;
+  openingOrder: "play-order";
+  redCounterDoesContact: true;
+  counterMultiplierCap: 2;
+  windReceiverMustChoose: true;
   tiedStrongestSuitOrder: "spades-hearts-diamonds-clubs";
 }
 
@@ -223,6 +225,7 @@ function cloneState(state: GameState): GameState {
       ...state.opening,
       respondedSeats: [...state.opening.respondedSeats],
       responses: { ...state.opening.responses },
+      counterSeats: [...state.opening.counterSeats],
       revealedHeartTwo: state.opening.revealedHeartTwo
         ? { ...state.opening.revealedHeartTwo }
         : null,
@@ -310,8 +313,10 @@ export function createGame(
   const startingSeat = heartTwoSeats[0] as Seat;
   const team = buildTeam(players);
   const policy: RulePolicy = options.policy ?? {
-    openingOrder: "provisional-explicit",
-    counterDoesContact: false,
+    openingOrder: "play-order",
+    redCounterDoesContact: true,
+    counterMultiplierCap: 2,
+    windReceiverMustChoose: true,
     tiedStrongestSuitOrder: "spades-hearts-diamonds-clubs"
   };
 
@@ -326,7 +331,7 @@ export function createGame(
       respondedSeats: [],
       responses: emptySeatRecord(() => null),
       contactedSeat: null,
-      counterSeat: null,
+      counterSeats: [],
       revealedHeartTwo: null,
       revealedAces: emptySeatRecord(() => []),
       revealedMaxCards: emptySeatRecord(() => null)
@@ -718,7 +723,7 @@ function handleOpeningAction(
       state,
       "opening",
       actor,
-      "♥2 持有者展示 ♥2 并开始询问，暂行规则：每名玩家按座次响应一次",
+      "♥2 持有者展示 ♥2 并开始询问，按出牌顺序逐座响应",
       [heartTwo]
     );
     return;
@@ -743,11 +748,9 @@ function handleOpeningAction(
     state.team.foundPartner = true;
     revealAllRedAces(state);
     if (state.team.mode === "1v3" && state.team.soleSeat === actor) {
-      if (state.opening.counterSeat === null) {
-        state.opening.counterSeat = actor;
-        state.multiplier = 2;
-        revealAllStrongestCards(state);
-      }
+      state.opening.counterSeats.push(actor);
+      state.multiplier = 2;
+      revealAllStrongestCards(state);
       historyEntry(
         state,
         "opening",
@@ -758,12 +761,11 @@ function handleOpeningAction(
       historyEntry(state, "opening", actor, `玩家 ${actor + 1} 联系并公开全部红A`);
     }
   } else if (action.response === "counter") {
-    if (state.opening.counterSeat !== null) {
-      throw new RuleError("COUNTER_ALREADY_USED", "Counter challenge is already used");
-    }
-    state.opening.counterSeat = actor;
+    const firstCounter = state.opening.counterSeats.length === 0;
+    state.opening.counterSeats.push(actor);
     state.multiplier = 2;
     if (state.team.redAceSeats.includes(actor)) {
+      state.team.foundPartner = true;
       revealAllRedAces(state);
     }
     revealAllStrongestCards(state);
@@ -771,7 +773,9 @@ function handleOpeningAction(
       state,
       "opening",
       actor,
-      `玩家 ${actor + 1} 反揪，全员展示最大单张，倍率变为 2`
+      firstCounter
+        ? `玩家 ${actor + 1} 反揪，全员展示最大单张，倍率变为 2`
+        : `玩家 ${actor + 1} 同时选择反揪，效果相同，倍率保持 2`
     );
   } else {
     historyEntry(state, "opening", actor, `玩家 ${actor + 1} 不表态`);

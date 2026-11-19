@@ -84,6 +84,12 @@ describe("deal, team split, and opening", () => {
     expect(initial.startingSeat).toBe(0);
     expect(initial.team.mode).toBe("2v2");
     expect(initial.team.redTeam).toEqual([0, 1]);
+    expect(initial.policy).toMatchObject({
+      openingOrder: "play-order",
+      redCounterDoesContact: true,
+      counterMultiplierCap: 2,
+      windReceiverMustChoose: true
+    });
     expect(initial.opening.revealedHeartTwo).toBeNull();
 
     const opened = openRound(initial, { 0: "contact" });
@@ -127,7 +133,7 @@ describe("deal, team split, and opening", () => {
     const opened = openRound(initial, { 2: "counter" });
     expect(opened.multiplier).toBe(2);
     expect(opened.team.foundPartner).toBe(false);
-    expect(opened.opening.counterSeat).toBe(2);
+    expect(opened.opening.counterSeats).toEqual([2]);
     expect(opened.opening.revealedAces[0]).toHaveLength(0);
     expect(opened.opening.revealedAces[1]).toHaveLength(0);
     expect(opened.opening.revealedMaxCards[2]).toMatchObject({
@@ -156,13 +162,13 @@ describe("deal, team split, and opening", () => {
     const opened = openRound(initial, { 0: "contact" });
     expect(opened.team.foundPartner).toBe(true);
     expect(opened.multiplier).toBe(2);
-    expect(opened.opening.counterSeat).toBe(0);
+    expect(opened.opening.counterSeats).toEqual([0]);
     expect(opened.opening.revealedAces[0]).toHaveLength(2);
     expect(opened.opening.revealedMaxCards[0]?.rank).toBe(14);
     expect(opened.opening.revealedMaxCards[1]?.rank).toBe(6);
   });
 
-  it("a red-A counter reveals aces but does not silently count as contact", () => {
+  it("a red-A counter reveals aces and counts as found partner", () => {
     const initial = create([
       [HEART_TWO, card(14, "hearts"), card(5)],
       [card(6)],
@@ -171,13 +177,13 @@ describe("deal, team split, and opening", () => {
     ]);
 
     const opened = openRound(initial, { 0: "counter" });
-    expect(opened.team.foundPartner).toBe(false);
+    expect(opened.team.foundPartner).toBe(true);
     expect(opened.opening.revealedAces[0]).toHaveLength(1);
     expect(opened.opening.revealedAces[2]).toHaveLength(1);
     expect(opened.multiplier).toBe(2);
   });
 
-  it("allows only one counter challenge in a round", () => {
+  it("lets multiple players counter in play order without stacking the multiplier", () => {
     const initial = create([
       [HEART_TWO, card(14, "hearts")],
       [card(14, "diamonds")],
@@ -193,15 +199,22 @@ describe("deal, team split, and opening", () => {
       type: "OPENING_RESPONSE",
       response: "counter"
     });
+    game = applyGameAction(game, 2, {
+      type: "OPENING_RESPONSE",
+      response: "counter"
+    });
+    game = applyGameAction(game, 3, {
+      type: "OPENING_RESPONSE",
+      response: "quiet"
+    });
 
-    expectRuleError(
-      () =>
-        applyGameAction(game, 2, {
-          type: "OPENING_RESPONSE",
-          response: "counter"
-        }),
-      "COUNTER_ALREADY_USED"
-    );
+    expect(game.opening.counterSeats).toEqual([1, 2]);
+    expect(game.multiplier).toBe(2);
+    expect(game.team.foundPartner).toBe(true);
+    expect(game.opening.revealedMaxCards[0]).not.toBeNull();
+    expect(game.opening.revealedMaxCards[1]).not.toBeNull();
+    expect(game.opening.revealedMaxCards[2]).not.toBeNull();
+    expect(game.opening.revealedMaxCards[3]).not.toBeNull();
   });
 });
 
@@ -532,7 +545,7 @@ describe("finishing, wind, and scoring", () => {
     expect(game.wind).toBeNull();
   });
 
-  it("uses on-table identity only when contact enabled team wind", () => {
+  it("keeps a non-red counter separate from contact when selecting wind", () => {
     let game = openRound(
       create([
         [HEART_TWO, card(14, "hearts")],
@@ -540,7 +553,7 @@ describe("finishing, wind, and scoring", () => {
         [card(14, "diamonds"), card(9)],
         [card(5), card(10)]
       ]),
-      { 0: "counter" }
+      { 1: "counter" }
     );
     game = withHands(game, [
       [HEART_TWO],
