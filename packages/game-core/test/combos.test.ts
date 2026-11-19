@@ -120,6 +120,17 @@ describe("combo comparison", () => {
     card(2, "clubs")
   ]);
   const doubleA = identifyCombo([card(14), card(14, "hearts")]);
+  const tripleA = identifyCombo([
+    card(14),
+    card(14, "hearts"),
+    card(14, "diamonds")
+  ]);
+  const quadA = identifyCombo([
+    card(14),
+    card(14, "hearts"),
+    card(14, "diamonds"),
+    card(14, "clubs")
+  ]);
 
   it("compares same-type, same-length ordinary combos by rank", () => {
     expect(straight789 && straight10JQ && canBeat(straight10JQ, straight789)).toBe(
@@ -149,5 +160,11 @@ describe("combo comparison", () => {
     expect(doubleA && quad2 && canBeat(doubleA, quad2)).toBe(true);
     expect(doubleA && canBeat(doubleA, doubleA)).toBe(false);
     expect(quad2 && doubleA && canBeat(quad2, doubleA)).toBe(false);
+  });
+
+  it("keeps larger A groups as special non-bomb combos", () => {
+    expect(tripleA && quadA && canBeat(quadA, tripleA)).toBe(false);
+    expect(tripleA && quad2 && canBeat(tripleA, quad2)).toBe(true);
+    expect(doubleA && tripleA && canBeat(doubleA, tripleA)).toBe(false);
   });
 });

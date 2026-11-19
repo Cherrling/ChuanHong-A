@@ -324,6 +324,12 @@ function PlayerSeat({ snapshot, game, seat }: PlayerSeatProps) {
         {!player.connected ? <span className="offline-tag">已断线</span> : null}
       </div>
       <div className="public-cards">
+        {game.opening.revealedHeartTwo && seat === game.startingSeat ? (
+          <div className="max-card-wrap">
+            <small>首出</small>
+            <PlayingCard card={game.opening.revealedHeartTwo} compact />
+          </div>
+        ) : null}
         {gamePlayer.revealedAces.map((card) => (
           <PlayingCard key={`ace-${cardKey(card)}`} card={card} compact />
         ))}

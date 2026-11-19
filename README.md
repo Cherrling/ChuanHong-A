@@ -14,7 +14,8 @@
 - 桌面与移动浏览器响应式牌桌。
 
 规则唯一来源是 [RULES.md](RULES.md)。尚未裁决的边界见
-[OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)。第一版对开局顺序使用页面明确提示的暂行实现，不把该顺序标记为正式规则。
+[OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)。已确认规则到状态机的映射见
+[RULES_AUDIT.md](RULES_AUDIT.md)。第一版对开局顺序使用页面明确提示的暂行实现，不把该顺序标记为正式规则。
 
 ## 技术要求
 

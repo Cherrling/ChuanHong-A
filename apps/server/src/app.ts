@@ -44,7 +44,7 @@ export function createApplication(
   registerSocketHandlers(io, manager);
 
   const projectRoot = fileURLToPath(new URL("../../../", import.meta.url));
-  for (const document of ["RULES.md", "OPEN_QUESTIONS.md"]) {
+  for (const document of ["RULES.md", "RULES_AUDIT.md", "OPEN_QUESTIONS.md"]) {
     const documentPath = `${projectRoot}${document}`;
     if (existsSync(documentPath)) {
       app.get(`/${document}`, (_request, response) => {

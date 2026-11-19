@@ -33,6 +33,7 @@ export interface OpeningPublicView {
   respondedSeats: Seat[];
   contactedSeat: Seat | null;
   counterSeat: Seat | null;
+  revealedHeartTwo: Card | null;
   provisional: true;
   provisionalText: string;
 }
@@ -116,6 +117,9 @@ export function toClientGameView(
       respondedSeats: [...state.opening.respondedSeats],
       contactedSeat: state.opening.contactedSeat,
       counterSeat: state.opening.counterSeat,
+      revealedHeartTwo: state.opening.revealedHeartTwo
+        ? { ...state.opening.revealedHeartTwo }
+        : null,
       provisional: true,
       provisionalText:
         "暂行开局顺序：从♥2持有者起，四人各响应一次；单独反揪不自动算找伙。"

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { io, type Socket } from "socket.io-client";
+import { cardKey } from "@chuanhong/game-core";
 import type {
   ApiResponse,
   RoomSession,
@@ -131,10 +132,34 @@ describe("four-player room socket flow", () => {
     expect(started.data.game.selfHand).toHaveLength(13);
 
     const internalRoom = context.manager.getRoom(created.data.session.roomCode);
+    const allGameCards =
+      internalRoom.game?.players[0].hand.length === 13
+        ? [0, 1, 2, 3].flatMap(
+            (seat) =>
+              internalRoom.game?.players[seat as 0 | 1 | 2 | 3].hand ?? []
+          )
+        : [];
+    expect(allGameCards).toHaveLength(52);
+    expect(new Set(allGameCards.map(cardKey)).size).toBe(52);
+    expect(
+      [0, 1, 2, 3].every(
+        (seat) =>
+          internalRoom.game?.players[seat as 0 | 1 | 2 | 3].hand.length === 13
+      )
+    ).toBe(true);
     const startingSeat = internalRoom.game?.startingSeat;
     if (startingSeat === undefined) {
       throw new Error("Missing starting seat");
     }
+    const hiddenCard =
+      internalRoom.game?.players[((startingSeat + 1) % 4) as 0 | 1 | 2 | 3]
+        .hand[0];
+    if (!hiddenCard) {
+      throw new Error("Missing hidden card");
+    }
+    expect(JSON.stringify(started.data.game)).not.toContain(
+      JSON.stringify(hiddenCard)
+    );
     const startingClientIndex = seats.indexOf(startingSeat);
     const startingClient = clients[startingClientIndex];
     if (!startingClient) {
@@ -175,6 +200,26 @@ describe("four-player room socket flow", () => {
     if (!openingHand) {
       throw new Error("Missing starting hand");
     }
+    const borrowedCard =
+      actionRoom.game?.players[((startingSeat + 1) % 4) as 0 | 1 | 2 | 3]
+        .hand[0];
+    if (!borrowedCard) {
+      throw new Error("Missing borrowed card");
+    }
+    const borrowedPlay = await emitAck<RoomSnapshot>(
+      startingClient,
+      "game:action",
+      {
+        action: {
+          type: "PLAY",
+          cards: [borrowedCard]
+        }
+      }
+    );
+    expect(borrowedPlay).toMatchObject({
+      ok: false,
+      code: "CARD_NOT_IN_HAND"
+    });
     const nonHeartCard = openingHand.find(
       (card) => !(card.rank === 2 && card.suit === "hearts")
     );
@@ -220,12 +265,17 @@ describe("four-player room socket flow", () => {
     if (!reconnectSession) {
       throw new Error("Missing reconnect session");
     }
+    const oldSocketClosed = new Promise<void>((resolve) => {
+      clients[1]?.once("disconnect", () => resolve());
+    });
     const resumed = await emitAck<RoomResult>(
       resumedSocket,
       "room:resume",
       { session: reconnectSession }
     );
     expect(resumed.ok).toBe(true);
+    await oldSocketClosed;
+    expect(clients[1]?.connected).toBe(false);
     if (resumed.ok) {
       expect(resumed.data.snapshot.selfSeat).toBe(seats[1]);
       expect(resumed.data.snapshot.game?.selfHand).toHaveLength(

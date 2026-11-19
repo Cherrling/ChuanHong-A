@@ -84,6 +84,7 @@ describe("deal, team split, and opening", () => {
     expect(initial.startingSeat).toBe(0);
     expect(initial.team.mode).toBe("2v2");
     expect(initial.team.redTeam).toEqual([0, 1]);
+    expect(initial.opening.revealedHeartTwo).toBeNull();
 
     const opened = openRound(initial, { 0: "contact" });
     expect(opened.phase).toBe("PLAY");
@@ -91,6 +92,26 @@ describe("deal, team split, and opening", () => {
     expect(opened.opening.revealedAces[0]).toHaveLength(1);
     expect(opened.opening.revealedAces[1]).toHaveLength(1);
     expect(opened.currentSeat).toBe(0);
+    expect(toClientGameView(opened, 2).team).toMatchObject({
+      mode: "2v2",
+      redTeam: [0, 1],
+      foundPartner: true
+    });
+  });
+
+  it("publicly reveals the opening heart two without removing it from hand", () => {
+    const initial = create([
+      [HEART_TWO, card(14, "hearts")],
+      [card(14, "diamonds")],
+      [card(3, "hearts")],
+      [card(4, "spades")]
+    ]);
+    const started = applyGameAction(initial, 0, { type: "BEGIN_OPENING" });
+    const view = toClientGameView(started, 1);
+
+    expect(started.opening.revealedHeartTwo).toEqual(HEART_TWO);
+    expect(started.players[0].hand).toContainEqual(HEART_TWO);
+    expect(view.opening.revealedHeartTwo).toEqual(HEART_TWO);
   });
 
   it("keeps a non-red counter separate from contact and doubles the multiplier", () => {
@@ -153,6 +174,33 @@ describe("deal, team split, and opening", () => {
     expect(opened.opening.revealedAces[2]).toHaveLength(1);
     expect(opened.multiplier).toBe(2);
   });
+
+  it("allows only one counter challenge in a round", () => {
+    const initial = create([
+      [HEART_TWO, card(14, "hearts")],
+      [card(14, "diamonds")],
+      [card(3, "hearts"), card(13)],
+      [card(4, "spades")]
+    ]);
+    let game = applyGameAction(initial, 0, { type: "BEGIN_OPENING" });
+    game = applyGameAction(game, 0, {
+      type: "OPENING_RESPONSE",
+      response: "quiet"
+    });
+    game = applyGameAction(game, 1, {
+      type: "OPENING_RESPONSE",
+      response: "counter"
+    });
+
+    expectRuleError(
+      () =>
+        applyGameAction(game, 2, {
+          type: "OPENING_RESPONSE",
+          response: "counter"
+        }),
+      "COUNTER_ALREADY_USED"
+    );
+  });
 });
 
 describe("ordinary play and passes", () => {
@@ -185,6 +233,37 @@ describe("ordinary play and passes", () => {
     expect(next.phase).toBe("PLAY");
     expect(next.currentSeat).toBe(1);
     expect(next.players[0].hand).toHaveLength(2);
+  });
+
+  it("rejects an action from a non-current seat", () => {
+    const game = openedGame();
+
+    expectRuleError(
+      () =>
+        applyGameAction(game, 1, {
+          type: "PLAY",
+          cards: [card(14, "diamonds")]
+        }),
+      "NOT_YOUR_TURN"
+    );
+  });
+
+  it("allows a legal opening pair that contains the heart two", () => {
+    const game = openRound(
+      create([
+        [HEART_TWO, card(2, "spades"), card(14, "hearts")],
+        [card(14, "diamonds")],
+        [card(3, "hearts")],
+        [card(4, "spades")]
+      ])
+    );
+    const next = applyGameAction(game, 0, {
+      type: "PLAY",
+      cards: [HEART_TWO, card(2, "spades")]
+    });
+
+    expect(next.currentPlay?.combo.type).toBe("pair");
+    expect(next.currentSeat).toBe(1);
   });
 
   it("allows a teammate to beat a play", () => {
@@ -281,6 +360,39 @@ describe("finishing, wind, and scoring", () => {
       multiplier: 1
     });
     expect(game.result?.scores).toEqual({ 0: 2, 1: 2, 2: -2, 3: -2 });
+  });
+
+  it("applies the counter multiplier to the final 2v2 score", () => {
+    let game = openRound(
+      create([
+        [HEART_TWO, card(14, "hearts")],
+        [card(14, "diamonds")],
+        [card(3)],
+        [card(4)]
+      ]),
+      { 0: "contact", 1: "counter" }
+    );
+    game = withHands(game, [
+      [HEART_TWO, card(2, "spades")],
+      [card(3, "hearts"), card(3, "diamonds")],
+      [card(4)],
+      [card(5)]
+    ]);
+    game = applyGameAction(game, 0, {
+      type: "PLAY",
+      cards: [HEART_TWO, card(2, "spades")]
+    });
+    game = applyGameAction(game, 1, {
+      type: "PLAY",
+      cards: [card(3, "hearts"), card(3, "diamonds")]
+    });
+
+    expect(game.multiplier).toBe(2);
+    expect(game.result).toMatchObject({
+      multiplier: 2,
+      outcome: "full",
+      scores: { 0: 4, 1: 4, 2: -4, 3: -4 }
+    });
   });
 
   it("ends 2v2 half-road when teams split the first two places", () => {
@@ -442,6 +554,34 @@ describe("finishing, wind, and scoring", () => {
     expect(game.wind?.receiverSeat).toBe(1);
   });
 
+  it("gives wind to the first active non-red teammate in 1v3", () => {
+    let game = openRound(
+      create([
+        [card(14, "hearts"), card(14, "diamonds"), card(4)],
+        [card(7), card(9)],
+        [HEART_TWO, card(5)],
+        [card(6), card(8)]
+      ]),
+      { 0: "contact" }
+    );
+    game = withHands(game, [
+      [card(14, "hearts"), card(4)],
+      [card(7), card(9)],
+      [HEART_TWO],
+      [card(6), card(8)]
+    ]);
+    game = applyGameAction(game, 2, {
+      type: "PLAY",
+      cards: [HEART_TWO]
+    });
+
+    expect(game.team).toMatchObject({
+      mode: "1v3",
+      foundPartner: true
+    });
+    expect(game.wind?.receiverSeat).toBe(3);
+  });
+
   it.each([
     [1, 6, -2, "red", "full"],
     [2, 3, -1, "red", "half"],
@@ -465,6 +605,152 @@ describe("finishing, wind, and scoring", () => {
       expect(score.sole + score.other * 3).toBe(0);
     }
     expect(soloScoreValues(1, 2)).toMatchObject({ sole: 12, other: -4 });
+  });
+
+  it("finishes a 1v3 round immediately when the sole player is first", () => {
+    let game = openRound(
+      create([
+        [
+          HEART_TWO,
+          card(14, "hearts"),
+          card(14, "diamonds"),
+          card(5)
+        ],
+        [card(6)],
+        [card(7)],
+        [card(8)]
+      ])
+    );
+    game = withHands(game, [
+      [HEART_TWO],
+      [card(6)],
+      [card(7)],
+      [card(8)]
+    ]);
+    game = applyGameAction(game, 0, {
+      type: "PLAY",
+      cards: [HEART_TWO]
+    });
+
+    expect(game.result).toMatchObject({
+      teamMode: "1v3",
+      soleRank: 1,
+      outcome: "full",
+      scores: { 0: 6, 1: -2, 2: -2, 3: -2 }
+    });
+  });
+
+  it("finishes a 1v3 round when the sole player is second", () => {
+    let game = openRound(
+      create([
+        [card(14, "hearts"), card(14, "diamonds"), card(9)],
+        [HEART_TWO, card(5)],
+        [card(3), card(10)],
+        [card(4), card(11)]
+      ])
+    );
+    game = withHands(game, [
+      [card(14, "hearts")],
+      [HEART_TWO],
+      [card(3), card(10)],
+      [card(4), card(11)]
+    ]);
+    game = applyGameAction(game, 1, {
+      type: "PLAY",
+      cards: [HEART_TWO]
+    });
+    game = applyGameAction(game, 2, {
+      type: "PLAY",
+      cards: [card(3)]
+    });
+    game = applyGameAction(game, 3, { type: "PASS" });
+    game = applyGameAction(game, 0, {
+      type: "PLAY",
+      cards: [card(14, "hearts")]
+    });
+
+    expect(game.finishOrder).toEqual([1, 0]);
+    expect(game.result).toMatchObject({
+      teamMode: "1v3",
+      soleRank: 2,
+      outcome: "half",
+      scores: { 0: 3, 1: -1, 2: -1, 3: -1 }
+    });
+  });
+
+  it("finishes a 1v3 round when the sole player is third", () => {
+    let game = openRound(
+      create([
+        [card(14, "hearts"), card(14, "diamonds"), card(9)],
+        [HEART_TWO, card(5)],
+        [card(3), card(10)],
+        [card(4), card(11)]
+      ])
+    );
+    game = withHands(game, [
+      [card(14, "hearts")],
+      [HEART_TWO],
+      [card(3)],
+      [card(4), card(11)]
+    ]);
+    game = applyGameAction(game, 1, {
+      type: "PLAY",
+      cards: [HEART_TWO]
+    });
+    game = applyGameAction(game, 2, {
+      type: "PLAY",
+      cards: [card(3)]
+    });
+    game = applyGameAction(game, 3, { type: "REQUEST_WIND" });
+    game = applyGameAction(game, 0, {
+      type: "PLAY",
+      cards: [card(14, "hearts")]
+    });
+
+    expect(game.finishOrder).toEqual([1, 2, 0]);
+    expect(game.result).toMatchObject({
+      teamMode: "1v3",
+      soleRank: 3,
+      outcome: "half",
+      scores: { 0: -3, 1: 1, 2: 1, 3: 1 }
+    });
+  });
+
+  it("ends a 1v3 round as sole-player fourth after all opponents finish", () => {
+    let game = openRound(
+      create([
+        [card(14, "hearts"), card(14, "diamonds"), card(9)],
+        [HEART_TWO, card(5)],
+        [card(3), card(10)],
+        [card(4), card(11)]
+      ])
+    );
+    game = withHands(game, [
+      [card(14, "hearts"), card(9)],
+      [HEART_TWO],
+      [card(3)],
+      [card(4)]
+    ]);
+    game = applyGameAction(game, 1, {
+      type: "PLAY",
+      cards: [HEART_TWO]
+    });
+    game = applyGameAction(game, 2, {
+      type: "PLAY",
+      cards: [card(3)]
+    });
+    game = applyGameAction(game, 3, {
+      type: "PLAY",
+      cards: [card(4)]
+    });
+
+    expect(game.finishOrder).toEqual([1, 2, 3]);
+    expect(game.result).toMatchObject({
+      teamMode: "1v3",
+      soleRank: 4,
+      outcome: "full",
+      scores: { 0: -6, 1: 2, 2: 2, 3: 2 }
+    });
   });
 });
 

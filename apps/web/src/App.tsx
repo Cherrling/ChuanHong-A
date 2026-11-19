@@ -370,7 +370,8 @@ export function App() {
 
         <footer className="landing-footer">
           以 <a href="/RULES.md">RULES.md</a> 为规则来源。待确认边界见{" "}
-          <a href="/OPEN_QUESTIONS.md">OPEN_QUESTIONS.md</a>。
+          <a href="/OPEN_QUESTIONS.md">OPEN_QUESTIONS.md</a>。状态机审计见{" "}
+          <a href="/RULES_AUDIT.md">RULES_AUDIT.md</a>。
         </footer>
       </div>
     );

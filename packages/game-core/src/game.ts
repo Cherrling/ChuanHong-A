@@ -37,6 +37,7 @@ export interface OpeningState {
   responses: Record<Seat, OpeningResponse | null>;
   contactedSeat: Seat | null;
   counterSeat: Seat | null;
+  revealedHeartTwo: Card | null;
   revealedAces: Record<Seat, Card[]>;
   revealedMaxCards: Record<Seat, Card | null>;
 }
@@ -222,6 +223,9 @@ function cloneState(state: GameState): GameState {
       ...state.opening,
       respondedSeats: [...state.opening.respondedSeats],
       responses: { ...state.opening.responses },
+      revealedHeartTwo: state.opening.revealedHeartTwo
+        ? { ...state.opening.revealedHeartTwo }
+        : null,
       revealedAces: {
         0: state.opening.revealedAces[0].map((card) => ({ ...card })),
         1: state.opening.revealedAces[1].map((card) => ({ ...card })),
@@ -323,6 +327,7 @@ export function createGame(
       responses: emptySeatRecord(() => null),
       contactedSeat: null,
       counterSeat: null,
+      revealedHeartTwo: null,
       revealedAces: emptySeatRecord(() => []),
       revealedMaxCards: emptySeatRecord(() => null)
     },
@@ -704,11 +709,17 @@ function handleOpeningAction(
     state.opening.status = "IN_PROGRESS";
     state.opening.currentSeat = state.startingSeat;
     state.currentSeat = state.startingSeat;
+    const heartTwo = state.players[actor].hand.find(isHeartTwo);
+    if (!heartTwo) {
+      throw new RuleError("INVALID_DEAL", "The starting player has no heart two");
+    }
+    state.opening.revealedHeartTwo = { ...heartTwo };
     historyEntry(
       state,
       "opening",
       actor,
-      "♥2 持有者开始询问，暂行规则：每名玩家按座次响应一次"
+      "♥2 持有者展示 ♥2 并开始询问，暂行规则：每名玩家按座次响应一次",
+      [heartTwo]
     );
     return;
   }
